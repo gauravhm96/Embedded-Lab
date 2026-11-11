@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+
+# C / Kernel Build artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+Module.symvers
+modules.order
+
+# Device Tree compiled files
+*.dtbo
+
+# Yocto Build Output
+build/
+tmp/
+downloads/
+sstate-cache/
+cache/
+
