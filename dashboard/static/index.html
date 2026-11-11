@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Server</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #101318;
+            color: #f1f1f1;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        #status {
+            color: #aaa;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        button {
+            background: #2878e5;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #1764c9;
+        }
+
+        #gallery {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fill,
+                minmax(220px, 1fr)
+            );
+            gap: 20px;
+        }
+
+        .video-card {
+            background: #1c222b;
+            border-radius: 9px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .video-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .thumbnail {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: contain;
+            background: #080a0d;
+            display: block;
+        }
+
+        .video-name {
+            padding: 12px;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+            line-height: 1.4;
+        }
+
+        #message {
+            color: #aaa;
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        #player {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #player video {
+            width: 100%;
+            max-width: 1100px;
+            max-height: 80vh;
+            background: black;
+        }
+
+        #closePlayer {
+            align-self: flex-end;
+            margin-bottom: 15px;
+            background: #444;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 14px;
+            }
+
+            #gallery {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            h1 {
+                font-size: 19px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div>
+        <h1>BlueBerry Media Server</h1>
+        <div id="status">Loading videos...</div>
+    </div>
+
+    <button onclick="loadVideos()">Refresh</button>
+</header>
+
+<main>
+    <div id="gallery"></div>
+    <div id="message"></div>
+</main>
+
+<div id="player">
+    <button id="closePlayer" onclick="closeVideo()">Close ✕</button>
+    <video id="videoElement" controls playsinline></video>
+</div>
+
+<script>
+    const gallery = document.getElementById("gallery");
+    const statusText = document.getElementById("status");
+    const message = document.getElementById("message");
+
+    function encodePath(path) {
+        return path.split("/")
+            .map(part => encodeURIComponent(part))
+            .join("/");
+    }
+
+    async function loadVideos() {
+        gallery.innerHTML = "";
+        message.textContent = "";
+        statusText.textContent = "Loading videos...";
+
+        try {
+            const response = await fetch("/api/videos");
+
+            if (!response.ok) {
+                throw new Error("Could not load videos (" + response.status + ")");
+            }
+
+            const videos = await response.json();
+
+            statusText.textContent = videos.length + " videos";
+
+            if (videos.length === 0) {
+                message.textContent = "No videos found.";
+                return;
+            }
+
+            videos.forEach(video => {
+                const card = document.createElement("div");
+                card.className = "video-card";
+
+                const thumbnail = document.createElement("img");
+                thumbnail.className = "thumbnail";
+                thumbnail.loading = "lazy";
+                thumbnail.alt = video.name;
+                thumbnail.src =
+                    "/api/thumb?path=" + encodeURIComponent(video.path);
+
+                thumbnail.onerror = () => {
+                    thumbnail.alt = "Thumbnail unavailable";
+                };
+
+                const name = document.createElement("div");
+                name.className = "video-name";
+                name.textContent = video.name;
+
+                card.appendChild(thumbnail);
+                card.appendChild(name);
+
+                card.addEventListener("click", () => {
+                    openVideo(video.path);
+                });
+
+                gallery.appendChild(card);
+            });
+
+        } catch (error) {
+            statusText.textContent = "Connection error";
+            message.textContent = error.message;
+        }
+    }
+
+    function openVideo(path) {
+        const player = document.getElementById("player");
+        const video = document.getElementById("videoElement");
+
+        video.src = "/media/" + encodePath(path);
+        player.style.display = "flex";
+        video.play().catch(() => {});
+    }
+
+    function closeVideo() {
+        const player = document.getElementById("player");
+        const video = document.getElementById("videoElement");
+
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+        player.style.display = "none";
+    }
+
+    loadVideos();
+</script>
+
+</body>
+</html>
